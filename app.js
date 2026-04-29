@@ -319,7 +319,7 @@
     };
 
     node.querySelector('[data-action="close"]').addEventListener('click', close);
-    node.querySelector('[data-backdrop]').addEventListener('click', (e) => {
+    node.addEventListener('click', (e) => {
       if (e.target === node) close();
     });
 
