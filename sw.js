@@ -1,4 +1,4 @@
-const CACHE = 'app-correr-v1';
+const CACHE = 'app-correr-v2';
 const ASSETS = [
   './',
   './index.html',

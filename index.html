@@ -3,15 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
-  <meta name="theme-color" content="#0b132b" />
+  <meta name="theme-color" content="#0a0e1a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Correr" />
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/svg+xml" href="icon.svg" />
   <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
-  <title>App Correr</title>
+  <title>Correr</title>
 </head>
 <body>
   <div id="app"></div>
@@ -20,16 +23,28 @@
   <template id="tpl-home">
     <section class="screen screen-home">
       <header class="hero">
-        <h1>Correr</h1>
-        <p class="subtitle">Andando · Corriendo</p>
+        <div class="brand">
+          <span class="brand-dot"></span>
+          <span class="brand-name">Correr</span>
+        </div>
+        <h1>¿Listo para entrenar?</h1>
+        <p class="subtitle">Andando · Corriendo · Por intervalos</p>
       </header>
-      <button class="btn btn-primary btn-huge" data-action="start">Empezar</button>
+
+      <button class="btn btn-primary btn-hero" data-action="start">
+        <span class="btn-hero-label">Empezar</span>
+        <span class="btn-hero-arrow">→</span>
+      </button>
+
       <section class="history">
-        <h2>Historial</h2>
+        <div class="section-head">
+          <h2>Historial</h2>
+          <span class="section-count" data-count></span>
+        </div>
         <ul class="history-list" data-list></ul>
-        <p class="empty" data-empty hidden>Aún no hay sesiones guardadas.</p>
+        <p class="empty" data-empty hidden>Aún no hay sesiones.<br/>Cuando termines una se guardará aquí.</p>
         <div class="history-actions" data-actions hidden>
-          <button class="btn btn-ghost" data-action="export">Exportar CSV</button>
+          <button class="btn btn-ghost" data-action="export">↓ Exportar CSV</button>
           <button class="btn btn-ghost btn-danger" data-action="clear-all">Borrar todo</button>
         </div>
       </section>
@@ -40,14 +55,23 @@
   <template id="tpl-workout">
     <section class="screen screen-workout">
       <div class="state-banner" data-state-banner>
-        <span class="state-label" data-state-label>Andando</span>
+        <div class="state-head">
+          <span class="pulse-dot"></span>
+          <span class="state-label" data-state-label>Andando</span>
+        </div>
         <span class="state-time" data-segment-time>00:00</span>
+        <span class="state-total" data-state-total>Total 00:00</span>
       </div>
-      <div class="total-block">
-        <span class="total-label">Tiempo total</span>
-        <span class="total-time" data-total-time>00:00</span>
+
+      <div class="segments-block">
+        <div class="segments-head">
+          <h3>Tramos completados</h3>
+          <span class="hint">Toca uno para editar</span>
+        </div>
+        <ul class="segments-list segments-list-live" data-segments></ul>
+        <p class="empty empty-mini" data-empty>Aún no has cambiado de tramo.</p>
       </div>
-      <div class="segments-mini" data-segments-mini></div>
+
       <div class="actions">
         <button class="btn btn-primary btn-huge" data-action="toggle">Cambiar a Corriendo</button>
         <button class="btn btn-ghost" data-action="finish">Terminar</button>
@@ -55,22 +79,43 @@
     </section>
   </template>
 
-  <!-- Pantalla: Modal de detalles del tramo -->
+  <!-- Modal: editar datos de un tramo -->
   <template id="tpl-segment-form">
-    <div class="modal-backdrop">
+    <div class="modal-backdrop" data-backdrop>
       <div class="modal">
-        <h2 data-title>Tramo terminado</h2>
-        <p class="modal-sub" data-sub>Andando · 03:42</p>
-        <label>
-          Pulsaciones (opcional)
-          <input type="number" inputmode="numeric" min="0" max="250" data-field="bpm" placeholder="ppm" />
-        </label>
-        <label>
-          Velocidad (opcional)
-          <input type="number" inputmode="decimal" min="0" max="50" step="0.1" data-field="speed" placeholder="km/h" />
-        </label>
+        <div class="modal-head">
+          <h2 data-title>Editar tramo</h2>
+          <button class="icon-btn" data-action="close" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="modal-meta">
+          <span class="modal-pill" data-pill>Andando</span>
+          <span class="modal-duration" data-duration>00:00</span>
+        </div>
+        <div class="form-grid">
+          <label>
+            <span class="form-label">Pulsaciones</span>
+            <div class="form-input-wrap">
+              <input type="number" inputmode="numeric" min="0" max="250" data-field="bpm" placeholder="—" />
+              <span class="form-unit">ppm</span>
+            </div>
+          </label>
+          <label>
+            <span class="form-label">Velocidad</span>
+            <div class="form-input-wrap">
+              <input type="number" inputmode="decimal" min="0" max="60" step="0.1" data-field="speed" placeholder="—" />
+              <span class="form-unit">km/h</span>
+            </div>
+          </label>
+          <label class="form-full">
+            <span class="form-label">Distancia</span>
+            <div class="form-input-wrap">
+              <input type="number" inputmode="decimal" min="0" max="100" step="0.01" data-field="km" placeholder="—" />
+              <span class="form-unit">km</span>
+            </div>
+          </label>
+        </div>
         <div class="modal-actions">
-          <button class="btn btn-ghost" data-action="skip">Saltar</button>
+          <button class="btn btn-ghost" data-action="clear">Vaciar</button>
           <button class="btn btn-primary" data-action="save">Guardar</button>
         </div>
       </div>
@@ -80,18 +125,36 @@
   <!-- Pantalla: Resumen al terminar -->
   <template id="tpl-summary">
     <section class="screen screen-summary">
-      <header class="hero">
+      <header class="hero hero-compact">
+        <span class="brand-dot"></span>
         <h1>Sesión completada</h1>
         <p class="subtitle" data-date></p>
       </header>
       <div class="stats">
-        <div class="stat"><span class="stat-label">Total</span><span class="stat-value" data-total></span></div>
-        <div class="stat"><span class="stat-label">Andando</span><span class="stat-value" data-walk></span></div>
-        <div class="stat"><span class="stat-label">Corriendo</span><span class="stat-value" data-run></span></div>
-        <div class="stat"><span class="stat-label">Tramos</span><span class="stat-value" data-count></span></div>
+        <div class="stat stat-primary">
+          <span class="stat-label">Total</span>
+          <span class="stat-value" data-total></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Distancia</span>
+          <span class="stat-value" data-km></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label stat-walk">Andando</span>
+          <span class="stat-value" data-walk></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label stat-run">Corriendo</span>
+          <span class="stat-value" data-run></span>
+        </div>
       </div>
-      <h2>Tramos</h2>
-      <ol class="segments-list" data-segments></ol>
+      <div class="segments-block">
+        <div class="segments-head">
+          <h3>Tramos <span class="muted" data-count></span></h3>
+          <span class="hint">Toca para editar</span>
+        </div>
+        <ol class="segments-list" data-segments></ol>
+      </div>
       <div class="actions">
         <button class="btn btn-primary btn-huge" data-action="save">Guardar sesión</button>
         <button class="btn btn-ghost btn-danger" data-action="discard">Descartar</button>
@@ -102,18 +165,35 @@
   <!-- Pantalla: Detalle de sesión guardada -->
   <template id="tpl-detail">
     <section class="screen screen-summary">
-      <header class="hero">
+      <header class="hero hero-compact hero-detail">
         <button class="btn-back" data-action="back">‹ Volver</button>
         <h1 data-date>Sesión</h1>
       </header>
       <div class="stats">
-        <div class="stat"><span class="stat-label">Total</span><span class="stat-value" data-total></span></div>
-        <div class="stat"><span class="stat-label">Andando</span><span class="stat-value" data-walk></span></div>
-        <div class="stat"><span class="stat-label">Corriendo</span><span class="stat-value" data-run></span></div>
-        <div class="stat"><span class="stat-label">Tramos</span><span class="stat-value" data-count></span></div>
+        <div class="stat stat-primary">
+          <span class="stat-label">Total</span>
+          <span class="stat-value" data-total></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Distancia</span>
+          <span class="stat-value" data-km></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label stat-walk">Andando</span>
+          <span class="stat-value" data-walk></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label stat-run">Corriendo</span>
+          <span class="stat-value" data-run></span>
+        </div>
       </div>
-      <h2>Tramos</h2>
-      <ol class="segments-list" data-segments></ol>
+      <div class="segments-block">
+        <div class="segments-head">
+          <h3>Tramos <span class="muted" data-count></span></h3>
+          <span class="hint">Toca para editar</span>
+        </div>
+        <ol class="segments-list" data-segments></ol>
+      </div>
       <div class="actions">
         <button class="btn btn-ghost btn-danger" data-action="delete">Borrar sesión</button>
       </div>

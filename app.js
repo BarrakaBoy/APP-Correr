@@ -22,6 +22,11 @@
     });
   };
 
+  const fmtKm = (km) => {
+    if (km == null || km === 0) return '—';
+    return `${km.toFixed(2)} km`;
+  };
+
   const labelOf = (type) => type === 'run' ? 'Corriendo' : 'Andando';
 
   const cloneTpl = (id) => document.getElementById(id).content.firstElementChild.cloneNode(true);
@@ -30,6 +35,12 @@
     app.innerHTML = '';
     app.appendChild(node);
   };
+
+  const sumByType = (segments, type) =>
+    segments.filter(s => s.type === type).reduce((acc, s) => acc + s.duration, 0);
+
+  const sumKm = (segments) =>
+    segments.reduce((acc, s) => acc + (typeof s.km === 'number' ? s.km : 0), 0);
 
   // ---------- almacenamiento ----------
   const loadSessions = () => {
@@ -48,18 +59,24 @@
     saveSessions(list);
   };
 
+  const updateSession = (id, mutator) => {
+    const list = loadSessions();
+    const idx = list.findIndex(s => s.id === id);
+    if (idx === -1) return null;
+    mutator(list[idx]);
+    saveSessions(list);
+    return list[idx];
+  };
+
   const deleteSession = (id) => {
     saveSessions(loadSessions().filter(s => s.id !== id));
   };
-
-  const sumByType = (segments, type) =>
-    segments.filter(s => s.type === type).reduce((acc, s) => acc + s.duration, 0);
 
   // ---------- exportar CSV ----------
   const exportCSV = () => {
     const sessions = loadSessions();
     if (!sessions.length) return;
-    const rows = [['sesion_id', 'fecha', 'tramo_n', 'tipo', 'duracion_segundos', 'bpm', 'velocidad_kmh']];
+    const rows = [['sesion_id', 'fecha', 'tramo_n', 'tipo', 'duracion_segundos', 'bpm', 'velocidad_kmh', 'km']];
     sessions.forEach(s => {
       s.segments.forEach((seg, i) => {
         rows.push([
@@ -70,6 +87,7 @@
           Math.round(seg.duration / 1000),
           seg.bpm ?? '',
           seg.speed ?? '',
+          seg.km ?? '',
         ]);
       });
     });
@@ -94,7 +112,10 @@
     const list = node.querySelector('[data-list]');
     const empty = node.querySelector('[data-empty]');
     const actions = node.querySelector('[data-actions]');
+    const count = node.querySelector('[data-count]');
     const sessions = loadSessions();
+
+    count.textContent = sessions.length ? `${sessions.length} sesiones` : '';
 
     if (!sessions.length) {
       empty.hidden = false;
@@ -107,17 +128,29 @@
         const total = s.segments.reduce((a, x) => a + x.duration, 0);
         const walk = sumByType(s.segments, 'walk');
         const run = sumByType(s.segments, 'run');
+        const km = sumKm(s.segments);
         li.innerHTML = `
           <div class="row">
             <span class="date"></span>
             <span class="total"></span>
           </div>
-          <div class="meta"></div>
+          <div class="meta">
+            <span><span class="dot dot-walk"></span><span class="walk-t"></span></span>
+            <span><span class="dot dot-run"></span><span class="run-t"></span></span>
+            <span class="seg-count"></span>
+            <span class="km-t" hidden></span>
+          </div>
         `;
         li.querySelector('.date').textContent = fmtDate(s.startedAt);
         li.querySelector('.total').textContent = fmtTime(total);
-        li.querySelector('.meta').textContent =
-          `${s.segments.length} tramos · And. ${fmtTime(walk)} · Corr. ${fmtTime(run)}`;
+        li.querySelector('.walk-t').textContent = fmtTime(walk);
+        li.querySelector('.run-t').textContent = fmtTime(run);
+        li.querySelector('.seg-count').textContent = `${s.segments.length} tramos`;
+        if (km > 0) {
+          const kmEl = li.querySelector('.km-t');
+          kmEl.textContent = fmtKm(km);
+          kmEl.hidden = false;
+        }
         li.addEventListener('click', () => renderDetail(s.id));
         list.appendChild(li);
       });
@@ -156,10 +189,27 @@
     const banner = node.querySelector('[data-state-banner]');
     const stateLabel = node.querySelector('[data-state-label]');
     const segTime = node.querySelector('[data-segment-time]');
-    const totalTime = node.querySelector('[data-total-time]');
-    const mini = node.querySelector('[data-segments-mini]');
+    const stateTotal = node.querySelector('[data-state-total]');
+    const segList = node.querySelector('[data-segments]');
+    const segEmpty = node.querySelector('[data-empty]');
     const toggleBtn = node.querySelector('[data-action="toggle"]');
     const finishBtn = node.querySelector('[data-action="finish"]');
+
+    const refreshList = () => {
+      segList.innerHTML = '';
+      if (workoutState.segments.length === 0) {
+        segEmpty.hidden = false;
+      } else {
+        segEmpty.hidden = true;
+        workoutState.segments.forEach((seg, i) => {
+          segList.appendChild(buildSegmentItem(seg, i, () => {
+            openSegmentEditor(seg, () => {
+              refreshList();
+            });
+          }));
+        });
+      }
+    };
 
     const updateView = () => {
       const now = Date.now();
@@ -168,160 +218,223 @@
       stateLabel.textContent = labelOf(workoutState.currentType);
       banner.classList.toggle('is-running', workoutState.currentType === 'run');
       segTime.textContent = fmtTime(segMs);
-      totalTime.textContent = fmtTime(finishedSum + segMs);
+      stateTotal.textContent = `Total ${fmtTime(finishedSum + segMs)}`;
       const next = workoutState.currentType === 'walk' ? 'Corriendo' : 'Andando';
       toggleBtn.textContent = `Cambiar a ${next}`;
-      mini.innerHTML = '';
-      workoutState.segments.forEach((s, i) => {
-        const chip = document.createElement('span');
-        chip.className = `chip ${s.type}`;
-        chip.textContent = `${i + 1}. ${labelOf(s.type).slice(0,3)} ${fmtTime(s.duration)}`;
-        mini.appendChild(chip);
-      });
     };
 
-    const tick = () => updateView();
-    workoutState.tickHandle = setInterval(tick, 250);
+    workoutState.tickHandle = setInterval(updateView, 250);
     updateView();
+    refreshList();
 
-    toggleBtn.addEventListener('click', () => closeSegment(false));
-    finishBtn.addEventListener('click', () => closeSegment(true));
+    toggleBtn.addEventListener('click', () => {
+      const now = Date.now();
+      const duration = now - workoutState.segmentStart;
+      if (duration < 1000) return; // evita cambios accidentales <1s
+      workoutState.segments.push({ type: workoutState.currentType, duration });
+      workoutState.currentType = workoutState.currentType === 'walk' ? 'run' : 'walk';
+      workoutState.segmentStart = Date.now();
+      updateView();
+      refreshList();
+    });
+
+    finishBtn.addEventListener('click', () => {
+      const now = Date.now();
+      const duration = now - workoutState.segmentStart;
+      if (duration >= 1000) {
+        workoutState.segments.push({ type: workoutState.currentType, duration });
+      }
+      clearInterval(workoutState.tickHandle);
+      if (workoutState.segments.length === 0) {
+        if (confirm('No hay tramos registrados. ¿Cancelar la sesión?')) {
+          workoutState = null;
+          renderHome();
+        } else {
+          // reanudar
+          workoutState.segmentStart = Date.now();
+          renderWorkout();
+        }
+        return;
+      }
+      renderSummary();
+    });
 
     render(node);
   };
 
-  const closeSegment = (isFinish) => {
-    if (!workoutState) return;
-    const now = Date.now();
-    const duration = now - workoutState.segmentStart;
-    const type = workoutState.currentType;
+  // ---------- elemento de un tramo (compartido) ----------
+  const buildSegmentItem = (seg, i, onClick) => {
+    const li = document.createElement('li');
+    li.className = 'seg-item';
+    li.innerHTML = `
+      <span class="seg-num"></span>
+      <div class="seg-main">
+        <span class="seg-type"></span>
+        <span class="seg-meta"></span>
+      </div>
+      <span class="seg-time"></span>
+    `;
+    li.querySelector('.seg-num').textContent = String(i + 1);
+    const typeEl = li.querySelector('.seg-type');
+    typeEl.textContent = labelOf(seg.type);
+    typeEl.classList.add(seg.type);
+    li.querySelector('.seg-time').textContent = fmtTime(seg.duration);
 
-    // Si dura menos de 1s, ignoramos para no ensuciar — pero sólo en cambios
-    if (!isFinish && duration < 1000) {
-      return;
+    const metaEl = li.querySelector('.seg-meta');
+    const meta = [];
+    if (typeof seg.bpm === 'number') meta.push(`${seg.bpm} ppm`);
+    if (typeof seg.speed === 'number') meta.push(`${seg.speed} km/h`);
+    if (typeof seg.km === 'number') meta.push(`${seg.km.toFixed(2)} km`);
+    if (meta.length === 0) {
+      metaEl.innerHTML = `<span class="placeholder">Toca para añadir datos</span>`;
+    } else {
+      metaEl.textContent = meta.join(' · ');
     }
-
-    openSegmentForm({
-      type,
-      duration,
-      isFinish,
-    });
+    if (onClick) li.addEventListener('click', onClick);
+    return li;
   };
 
-  const openSegmentForm = ({ type, duration, isFinish }) => {
+  // ---------- editor de tramo (modal) ----------
+  const openSegmentEditor = (segment, onSaved) => {
     const node = cloneTpl('tpl-segment-form');
-    node.querySelector('[data-title]').textContent =
-      isFinish ? `Último tramo: ${labelOf(type)}` : `Tramo: ${labelOf(type)}`;
-    node.querySelector('[data-sub]').textContent =
-      `Duración ${fmtTime(duration)}${isFinish ? ' · Después se guarda la sesión' : ''}`;
+    const titleEl = node.querySelector('[data-title]');
+    const pillEl = node.querySelector('[data-pill]');
+    const durationEl = node.querySelector('[data-duration]');
     const bpmInput = node.querySelector('[data-field="bpm"]');
     const speedInput = node.querySelector('[data-field="speed"]');
+    const kmInput = node.querySelector('[data-field="km"]');
 
-    const finalize = (withData) => {
-      const segment = { type, duration };
-      if (withData) {
-        const bpm = parseInt(bpmInput.value, 10);
-        const speed = parseFloat(speedInput.value);
-        if (!isNaN(bpm)) segment.bpm = bpm;
-        if (!isNaN(speed)) segment.speed = speed;
-      }
-      workoutState.segments.push(segment);
-      node.remove();
-      if (isFinish) {
-        clearInterval(workoutState.tickHandle);
-        renderSummary();
-      } else {
-        workoutState.currentType = workoutState.currentType === 'walk' ? 'run' : 'walk';
-        workoutState.segmentStart = Date.now();
-      }
+    titleEl.textContent = 'Datos del tramo';
+    pillEl.textContent = labelOf(segment.type);
+    pillEl.classList.toggle('run', segment.type === 'run');
+    durationEl.textContent = fmtTime(segment.duration);
+
+    if (typeof segment.bpm === 'number') bpmInput.value = segment.bpm;
+    if (typeof segment.speed === 'number') speedInput.value = segment.speed;
+    if (typeof segment.km === 'number') kmInput.value = segment.km;
+
+    const close = () => {
+      node.style.animation = 'fade 0.15s ease reverse';
+      setTimeout(() => node.remove(), 140);
     };
 
-    node.querySelector('[data-action="skip"]').addEventListener('click', () => finalize(false));
-    node.querySelector('[data-action="save"]').addEventListener('click', () => finalize(true));
+    node.querySelector('[data-action="close"]').addEventListener('click', close);
+    node.querySelector('[data-backdrop]').addEventListener('click', (e) => {
+      if (e.target === node) close();
+    });
+
+    node.querySelector('[data-action="clear"]').addEventListener('click', () => {
+      delete segment.bpm;
+      delete segment.speed;
+      delete segment.km;
+      if (onSaved) onSaved();
+      close();
+    });
+
+    node.querySelector('[data-action="save"]').addEventListener('click', () => {
+      const bpm = parseInt(bpmInput.value, 10);
+      const speed = parseFloat(speedInput.value);
+      const km = parseFloat(kmInput.value);
+      if (!isNaN(bpm)) segment.bpm = bpm; else delete segment.bpm;
+      if (!isNaN(speed)) segment.speed = speed; else delete segment.speed;
+      if (!isNaN(km)) segment.km = km; else delete segment.km;
+      if (onSaved) onSaved();
+      close();
+    });
 
     document.body.appendChild(node);
-    setTimeout(() => bpmInput.focus(), 50);
+    setTimeout(() => bpmInput.focus(), 80);
   };
 
   // ---------- pantalla: resumen ----------
   const renderSummary = () => {
-    const node = cloneTpl('tpl-summary');
     const segments = workoutState.segments;
     const startedAt = workoutState.startedAt;
-    const total = segments.reduce((a, x) => a + x.duration, 0);
-    const walk = sumByType(segments, 'walk');
-    const run = sumByType(segments, 'run');
 
-    node.querySelector('[data-date]').textContent = fmtDate(startedAt);
-    node.querySelector('[data-total]').textContent = fmtTime(total);
-    node.querySelector('[data-walk]').textContent = fmtTime(walk);
-    node.querySelector('[data-run]').textContent = fmtTime(run);
-    node.querySelector('[data-count]').textContent = String(segments.length);
+    const draw = () => {
+      const node = cloneTpl('tpl-summary');
+      const total = segments.reduce((a, x) => a + x.duration, 0);
+      const walk = sumByType(segments, 'walk');
+      const run = sumByType(segments, 'run');
+      const km = sumKm(segments);
 
-    const list = node.querySelector('[data-segments]');
-    fillSegmentsList(list, segments);
+      node.querySelector('[data-date]').textContent = fmtDate(startedAt);
+      node.querySelector('[data-total]').textContent = fmtTime(total);
+      node.querySelector('[data-walk]').textContent = fmtTime(walk);
+      node.querySelector('[data-run]').textContent = fmtTime(run);
+      node.querySelector('[data-km]').textContent = fmtKm(km);
+      node.querySelector('[data-count]').textContent = `(${segments.length})`;
 
-    node.querySelector('[data-action="save"]').addEventListener('click', () => {
-      const id = `${startedAt}-${Math.random().toString(36).slice(2,7)}`;
-      addSession({ id, startedAt, segments });
-      workoutState = null;
-      renderHome();
-    });
-    node.querySelector('[data-action="discard"]').addEventListener('click', () => {
-      if (confirm('¿Descartar esta sesión sin guardar?')) {
+      const list = node.querySelector('[data-segments]');
+      segments.forEach((seg, i) => {
+        list.appendChild(buildSegmentItem(seg, i, () => {
+          openSegmentEditor(seg, draw);
+        }));
+      });
+
+      node.querySelector('[data-action="save"]').addEventListener('click', () => {
+        const id = `${startedAt}-${Math.random().toString(36).slice(2,7)}`;
+        addSession({ id, startedAt, segments });
         workoutState = null;
         renderHome();
-      }
-    });
+      });
+      node.querySelector('[data-action="discard"]').addEventListener('click', () => {
+        if (confirm('¿Descartar esta sesión sin guardar?')) {
+          workoutState = null;
+          renderHome();
+        }
+      });
 
-    render(node);
-  };
+      render(node);
+    };
 
-  const fillSegmentsList = (list, segments) => {
-    segments.forEach(seg => {
-      const li = document.createElement('li');
-      const meta = [];
-      if (seg.bpm != null) meta.push(`${seg.bpm} ppm`);
-      if (seg.speed != null) meta.push(`${seg.speed} km/h`);
-      li.innerHTML = `
-        <div class="seg-main">
-          <span class="seg-type ${seg.type}"></span>
-          <span class="seg-meta"></span>
-        </div>
-        <span class="seg-time"></span>
-      `;
-      li.querySelector('.seg-type').textContent = labelOf(seg.type);
-      li.querySelector('.seg-meta').textContent = meta.join(' · ') || '—';
-      li.querySelector('.seg-time').textContent = fmtTime(seg.duration);
-      list.appendChild(li);
-    });
+    draw();
   };
 
   // ---------- pantalla: detalle ----------
   const renderDetail = (id) => {
     const session = loadSessions().find(s => s.id === id);
     if (!session) { renderHome(); return; }
-    const node = cloneTpl('tpl-detail');
-    const total = session.segments.reduce((a, x) => a + x.duration, 0);
-    const walk = sumByType(session.segments, 'walk');
-    const run = sumByType(session.segments, 'run');
 
-    node.querySelector('[data-date]').textContent = fmtDate(session.startedAt);
-    node.querySelector('[data-total]').textContent = fmtTime(total);
-    node.querySelector('[data-walk]').textContent = fmtTime(walk);
-    node.querySelector('[data-run]').textContent = fmtTime(run);
-    node.querySelector('[data-count]').textContent = String(session.segments.length);
-    fillSegmentsList(node.querySelector('[data-segments]'), session.segments);
+    const draw = (current) => {
+      const node = cloneTpl('tpl-detail');
+      const total = current.segments.reduce((a, x) => a + x.duration, 0);
+      const walk = sumByType(current.segments, 'walk');
+      const run = sumByType(current.segments, 'run');
+      const km = sumKm(current.segments);
 
-    node.querySelector('[data-action="back"]').addEventListener('click', renderHome);
-    node.querySelector('[data-action="delete"]').addEventListener('click', () => {
-      if (confirm('¿Borrar esta sesión?')) {
-        deleteSession(id);
-        renderHome();
-      }
-    });
+      node.querySelector('[data-date]').textContent = fmtDate(current.startedAt);
+      node.querySelector('[data-total]').textContent = fmtTime(total);
+      node.querySelector('[data-walk]').textContent = fmtTime(walk);
+      node.querySelector('[data-run]').textContent = fmtTime(run);
+      node.querySelector('[data-km]').textContent = fmtKm(km);
+      node.querySelector('[data-count]').textContent = `(${current.segments.length})`;
 
-    render(node);
+      const list = node.querySelector('[data-segments]');
+      current.segments.forEach((seg, i) => {
+        list.appendChild(buildSegmentItem(seg, i, () => {
+          openSegmentEditor(seg, () => {
+            // persistir cambios en localStorage
+            const updated = updateSession(id, (s) => {
+              s.segments[i] = seg;
+            });
+            if (updated) draw(updated);
+          });
+        }));
+      });
+
+      node.querySelector('[data-action="back"]').addEventListener('click', renderHome);
+      node.querySelector('[data-action="delete"]').addEventListener('click', () => {
+        if (confirm('¿Borrar esta sesión?')) {
+          deleteSession(id);
+          renderHome();
+        }
+      });
+
+      render(node);
+    };
+
+    draw(session);
   };
 
   // ---------- aviso al cerrar durante entrenamiento ----------
