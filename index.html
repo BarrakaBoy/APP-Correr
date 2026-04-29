@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0b132b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Correr" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="stylesheet" href="style.css" />
+  <title>App Correr</title>
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- Pantalla: Inicio -->
+  <template id="tpl-home">
+    <section class="screen screen-home">
+      <header class="hero">
+        <h1>Correr</h1>
+        <p class="subtitle">Andando · Corriendo</p>
+      </header>
+      <button class="btn btn-primary btn-huge" data-action="start">Empezar</button>
+      <section class="history">
+        <h2>Historial</h2>
+        <ul class="history-list" data-list></ul>
+        <p class="empty" data-empty hidden>Aún no hay sesiones guardadas.</p>
+        <div class="history-actions" data-actions hidden>
+          <button class="btn btn-ghost" data-action="export">Exportar CSV</button>
+          <button class="btn btn-ghost btn-danger" data-action="clear-all">Borrar todo</button>
+        </div>
+      </section>
+    </section>
+  </template>
+
+  <!-- Pantalla: Entrenamiento activo -->
+  <template id="tpl-workout">
+    <section class="screen screen-workout">
+      <div class="state-banner" data-state-banner>
+        <span class="state-label" data-state-label>Andando</span>
+        <span class="state-time" data-segment-time>00:00</span>
+      </div>
+      <div class="total-block">
+        <span class="total-label">Tiempo total</span>
+        <span class="total-time" data-total-time>00:00</span>
+      </div>
+      <div class="segments-mini" data-segments-mini></div>
+      <div class="actions">
+        <button class="btn btn-primary btn-huge" data-action="toggle">Cambiar a Corriendo</button>
+        <button class="btn btn-ghost" data-action="finish">Terminar</button>
+      </div>
+    </section>
+  </template>
+
+  <!-- Pantalla: Modal de detalles del tramo -->
+  <template id="tpl-segment-form">
+    <div class="modal-backdrop">
+      <div class="modal">
+        <h2 data-title>Tramo terminado</h2>
+        <p class="modal-sub" data-sub>Andando · 03:42</p>
+        <label>
+          Pulsaciones (opcional)
+          <input type="number" inputmode="numeric" min="0" max="250" data-field="bpm" placeholder="ppm" />
+        </label>
+        <label>
+          Velocidad (opcional)
+          <input type="number" inputmode="decimal" min="0" max="50" step="0.1" data-field="speed" placeholder="km/h" />
+        </label>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" data-action="skip">Saltar</button>
+          <button class="btn btn-primary" data-action="save">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Pantalla: Resumen al terminar -->
+  <template id="tpl-summary">
+    <section class="screen screen-summary">
+      <header class="hero">
+        <h1>Sesión completada</h1>
+        <p class="subtitle" data-date></p>
+      </header>
+      <div class="stats">
+        <div class="stat"><span class="stat-label">Total</span><span class="stat-value" data-total></span></div>
+        <div class="stat"><span class="stat-label">Andando</span><span class="stat-value" data-walk></span></div>
+        <div class="stat"><span class="stat-label">Corriendo</span><span class="stat-value" data-run></span></div>
+        <div class="stat"><span class="stat-label">Tramos</span><span class="stat-value" data-count></span></div>
+      </div>
+      <h2>Tramos</h2>
+      <ol class="segments-list" data-segments></ol>
+      <div class="actions">
+        <button class="btn btn-primary btn-huge" data-action="save">Guardar sesión</button>
+        <button class="btn btn-ghost btn-danger" data-action="discard">Descartar</button>
+      </div>
+    </section>
+  </template>
+
+  <!-- Pantalla: Detalle de sesión guardada -->
+  <template id="tpl-detail">
+    <section class="screen screen-summary">
+      <header class="hero">
+        <button class="btn-back" data-action="back">‹ Volver</button>
+        <h1 data-date>Sesión</h1>
+      </header>
+      <div class="stats">
+        <div class="stat"><span class="stat-label">Total</span><span class="stat-value" data-total></span></div>
+        <div class="stat"><span class="stat-label">Andando</span><span class="stat-value" data-walk></span></div>
+        <div class="stat"><span class="stat-label">Corriendo</span><span class="stat-value" data-run></span></div>
+        <div class="stat"><span class="stat-label">Tramos</span><span class="stat-value" data-count></span></div>
+      </div>
+      <h2>Tramos</h2>
+      <ol class="segments-list" data-segments></ol>
+      <div class="actions">
+        <button class="btn btn-ghost btn-danger" data-action="delete">Borrar sesión</button>
+      </div>
+    </section>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
